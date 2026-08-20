@@ -36,7 +36,6 @@ def recommend(title=None, genre=None, n=10):
 
         idx = title_to_idx[title]
 
-        # Find movies matching genre
         genre_matches = df[
             df["genres"].str.lower().str.contains(
                 genre,
@@ -47,7 +46,6 @@ def recommend(title=None, genre=None, n=10):
         if genre_matches.empty:
             return None, f"No movies found for genre '{genre}'."
 
-        # Calculate similarity
         movie_vec = tfidf_matrix[idx]
 
         sim_scores = cosine_similarity(
@@ -59,12 +57,10 @@ def recommend(title=None, genre=None, n=10):
             lambda x: sim_scores[x]
         )
 
-        # Remove selected movie
         genre_matches = genre_matches[
             genre_matches.index != idx
         ]
 
-        # Normalize score
         max_score = genre_matches["score"].max()
 
         if max_score > 0:
@@ -74,7 +70,6 @@ def recommend(title=None, genre=None, n=10):
         else:
             genre_matches["normalized_score"] = 0
 
-        # Final ranking
         genre_matches["final_rank"] = (
             0.6 * genre_matches["similarity"]
             + 0.4 * genre_matches["normalized_score"]
@@ -119,7 +114,6 @@ def recommend(title=None, genre=None, n=10):
             tfidf_matrix
         ).flatten()
 
-        # Get top 50 similar movies
         sim_indices = sim_scores.argsort()[::-1][1:50]
 
         candidates = df.iloc[sim_indices][
@@ -136,7 +130,6 @@ def recommend(title=None, genre=None, n=10):
 
         candidates["similarity"] = sim_scores[sim_indices]
 
-        # Combine similarity + movie score
         candidates["final_rank"] = (
             0.6 * candidates["similarity"]
             + 0.4 * (
