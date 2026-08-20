@@ -20,7 +20,6 @@ df = df.reset_index(drop=True)
 print("Cleaning Dataset Done")
 
 def build_soup(row):
-    # Repeat directors/cast to give them more weight
     directors = ' '.join([row['directors']] * 3)
     cast = row['cast'].replace(',', ' ')
     genres = row['genres'].replace(',', ' ')
@@ -39,8 +38,8 @@ df = df.reset_index(drop=True)
 
 tfidf = TfidfVectorizer(
     stop_words='english',
-    max_features=20000,   # cap vocab size for memory efficiency
-    ngram_range=(1, 2)    # unigrams + bigrams
+    max_features=20000,   
+    ngram_range=(1, 2)    
 )
 
 tfidf_matrix = tfidf.fit_transform(df['soup'])
@@ -48,15 +47,13 @@ print("Vectorized")
 
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
-# Save the matrix for reuse
 with open('tfidf_matrix.pkl', 'wb') as f:
     pickle.dump(tfidf_matrix, f)
 
-# Build a title → index map
 title_to_idx = pd.Series(df.index, index=df['title'].str.lower())
 
-C = df['averageRating'].mean()      # mean rating across all movies
-m = df['numVotes'].quantile(0.70)   # minimum votes threshold (70th percentile)
+C = df['averageRating'].mean()      
+m = df['numVotes'].quantile(0.70)   
 
 def weighted_rating(row, C=C, m=m):
     v = row['numVotes']
@@ -70,15 +67,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 def recommend(search, n=10):
     search = search.lower().strip()
 
-    # Check if search is a movie title
     if search in title_to_idx:
         idx = title_to_idx[search]
-
-        # Similarity between selected movie and all movies
         movie_vec = tfidf_matrix[idx]
         sim_scores = cosine_similarity(movie_vec, tfidf_matrix).flatten()
 
-        # Get top 50 similar movies, excluding itself
         sim_indices = sim_scores.argsort()[::-1][1:50]
 
         candidates = df.iloc[sim_indices][
@@ -88,7 +81,6 @@ def recommend(search, n=10):
 
         candidates['similarity'] = sim_scores[sim_indices]
 
-        # Blend similarity + score
         candidates['final_rank'] = (
             0.6 * candidates['similarity'] +
             0.4 * (candidates['score'] / candidates['score'].max())
@@ -99,7 +91,6 @@ def recommend(search, n=10):
             ascending=False
         ).head(n)
 
-    # If not a title, search by genre
     else:
         genre_matches = df[
             df['genres'].str.lower().str.contains(search, na=False)
@@ -109,7 +100,6 @@ def recommend(search, n=10):
             print(f"'{search}' not found as a title or genre.")
             return
 
-        # Sort genre movies by score
         genre_matches = genre_matches.sort_values(
             'score',
             ascending=False
@@ -134,7 +124,6 @@ with open('tfidf_matrix.pkl', 'wb') as f:
 with open('title_index.pkl', 'wb') as f:
     pickle.dump(title_to_idx, f)
 
-# Load later without recomputing
 with open('tfidf_matrix.pkl', 'rb') as f:
     tfidf_matrix = pickle.load(f)
 
